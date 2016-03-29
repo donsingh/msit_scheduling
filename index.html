@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel='stylesheet' type='text/css' href='resources/css/bootstrap.css'>
+	<script type='text/javascript' src='resources/js/jquery-2.1.3.min.js'></script>
+	<script type='text/javascript' src='resources/js/bootstrap.js'></script>
+	<style>
+		.main{
+			min-height:677px;
+		}
+		.right{
+			text-align: center;
+		}
+		td{
+			text-align:center;
+		}
+		.intro{
+			border:1px solid black;
+			min-height:600px;
+			border-radius: 20px;
+			padding:20px;
+		}
+		.barr{
+			float:left;
+			background-color: #5cb85c
+;		}
+	</style>
+</head>
+<body>
+<div class='container-fluid'>
+	<div class="row">
+	  <div class="col-md-4 left">
+	  	<h2>Options</h2>
+	  	<div class='intro'>
+	  	<div class="dropdown" style='width:100%;'>
+	  	  <label class="control-label">Select type of Algorithm:</label>
+		  <select class='form-control' id='algo'>
+		    <option value='1' selected="selected">First Come First Serve</option>
+		    <option value='2'>Shortest Process First</option>
+		    <option value='3'>Shortest Remaining Time</option>
+		    <!--<option value='4'>Round Robin</option>-->
+		  </ul>
+		  </select>
+		</div>
+		<br>
+	  	<div class="input-group input-group-lg">
+		  <span class="input-group-addon" id="sizing-addon1"># of Processes</span>
+		  <input type="text" class="form-control" value='5' aria-describedby="sizing-addon1" id='process_count'>
+		  <span class="input-group-btn">
+	        <button class="btn btn-default" type="button">Go!</button>
+	      </span>
+		</div>
+		<br>
+		<table class="table table-bordered" id='process_table'>
+		  <th width="30%">Proc ID</th>
+		  <th>Arrival Time</th>
+		  <th>CPU Burst</th>
+		</table>
+		<div class="row" id='finalButtons'>
+		  <div class="col-md-6"><button type="button" class="btn btn-block btn-danger" id='randomize'>Randomize</button></div>
+		  <div class="col-md-6"><button type="button" class="btn btn-block btn-success" id='start'>Schedule!</button></div>
+		</div>
+		</div>
+	  </div>
+
+	  <div class="col-md-8 main">
+	  			<center><h2>O.S. Scheduling Algorithms</h2></center>
+	  			<div style='padding-top:50px; overflow:hidden; ' class='intro' id='cover'>
+	  				<p><span class='glyphicon glyphicon-chevron-left'> </span> Select your desired options on the left</p>
+	  				<center>
+	  					<span class='glyphicon glyphicon-time' style='font-size:150px;'></span>
+	  					<p><h3>JQuery-based OS Scheduler</h3></p>
+	  					<p><b>Don Bhrayan M. Singh</b><p>
+	  					<p>University of San Carlos</p>
+	  					<p>Department of Computer Science</p>
+	  					<p>IT 207</p>
+
+	  				</center>
+	  				<p style='margin-top:80px;'><span class='glyphicon glyphicon-chevron-left'> </span> Click on Schedule to Start</p>
+	  			</div>
+	  			<div id='main' class='intro' style='display:none;'>
+	  				<table id='gantt_table' style='width:100%;'>
+				        	<th align='center'>Gantt Chart</th>
+			        </table>
+	  				<div class="panel panel-primary" style='margin-top:50px;'>
+				      <div class="panel-heading">
+				        <h3 class="panel-title" id="panel-title">Data Summary<a class="anchorjs-link" href="#panel-title"><span class="anchorjs-icon"></span></a></h3>
+				      </div>
+				      <div class="panel-body" style='min-height:100px;' id='gantt_body'>
+				        Average Wait Time: <span id='awt_hold'></span>
+				        <br>
+				        Average Turn Time: <span id='turn_hold'></span>
+				      </div>
+				    </div>
+	  			</div>
+	  </div>
+
+
+	</div>
+</div>
+
+</body>
+</html>
+<script>
+	var ctr = 0;
+	var thread = new Array();
+	var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+	var colors = ["success", "info", "danger", "warning"];
+	var processes = new Array();
+	var steps = new Array();
+	var data = {};
+	
+$(document).ready(function(){
+	
+	var pCount = $('#process_count').val();
+	
+	for(ctr=0;ctr < pCount; ctr++){
+			var newColor = rndColor();
+			var newRow = "<tr><td class='p_holder' style='background-color:"+newColor+"; color: white; text-shadow:  -1px -1px 0 #000,   1px -1px 0 #000, -1px 1px 0 #000,     1px 1px 0 #000;'>"+(letters[ctr])+"</td><td><input type='text' class='form-control at'></td><td><input type='text' class='form-control cb'></div></tr>";
+            $("#process_table tr:last").after(newRow);
+	}
+
+	$("#randomize").click(function(){
+		var rand_confirm = confirm("Randomize All Fields in Table?");
+		if(rand_confirm == true){
+			$("#process_table").find('input').each(function(){
+				$(this).val(Math.floor(Math.random()*10+1));
+			});
+		}
+	});
+
+	$("#start").click(function(){
+		$('#cover').each(function() {
+		 $height = $(this).height();
+		 $(this).css('height', $height);
+		});
+		$("#cover").slideToggle('1000', function(){
+			$("#main").slideToggle();
+			getValues();
+			switch(parseInt($("#algo").val())){
+				case 1:	fcfs();
+						break;
+				case 2: spf();
+						break;
+				case 3: srtf();
+				default:break;
+			}
+			$("#finalButtons").hide();
+		});
+		
+	});
+	
+});
+
+//If first start time is not zero, this will check for < startTime
+var startTime = 200;
+function srtf()
+{
+	var finalStack = new Array();
+	var tempStack = new Array();
+	var shortest = 9999999;
+	var holder = new Array();
+	holder = $.extend(true, [], thread);
+	var burst_timeTotal = 0;
+	var sTime = 9999999;
+	var tar;
+	
+	//GET Total Burst time and get smallest arrival time (AT)
+	for(ctr = 0; ctr < thread.length;ctr++){
+		burst_timeTotal += parseInt(thread[ctr].CB);
+		if(sTime > parseInt(thread[ctr].AT)){
+			sTime = parseInt(thread[ctr].AT);
+		}
+	}
+	
+	for(tQ = 0; tQ < burst_timeTotal; tQ++){
+		for(ctr = 0; ctr < holder.length;){
+			if(parseInt(holder[ctr].AT) <= tQ){
+				tempStack.push(holder[ctr]);
+				holder.splice(ctr,1);
+			}else{
+				ctr++;
+			}
+		}
+		while(tempStack.length!=0){
+			shortest = 9999999;
+			tar = 0;
+			for(ctr = 0; ctr < tempStack.length; ctr++){
+				if(parseInt(tempStack[ctr].CB) < shortest){
+					shortest  = parseInt(tempStack[ctr].CB);
+					tar = ctr;
+				}else if(parseInt(tempStack[ctr].CB) == shortest){
+					if(tempStack[ctr].ID < tempStack[tar].ID){
+					   tar = ctr;
+					}
+				}
+			}
+			
+			var newBlock = {"AT": tempStack[tar]["AT"],"CB": 1,"CO": tempStack[tar]["CO"],"ID": tempStack[tar]["ID"]};
+			finalStack.push(newBlock);
+			tempStack[tar]["CB"] -= 1;
+			
+			if(tempStack[tar]["CB"] == 0){
+				tempStack.splice(tar,1);
+			}
+			ctr=0;
+			while(tempStack.length!=0){
+				holder.push(tempStack[ctr]);
+				tempStack.splice(ctr,1);
+			}
+		}
+	}
+	for(ctr = 0; ctr < finalStack.length-1;){
+		if(finalStack[ctr]["ID"]==finalStack[ctr+1]["ID"]){
+			finalStack[ctr]["CB"] += 1;
+			finalStack.splice(ctr+1,1);			
+		}else{
+			ctr++;
+		}
+	}
+	console.log(finalStack);
+	render(finalStack);
+}
+function spf()
+{
+	var finalStack = new Array();
+	var tempStack = new Array();
+	var shortest = 9999999;
+	var holder = new Array();
+	holder = $.extend(true, [], thread);
+	var burst_timeTotal = 0;
+	var sTime = 9999999;
+	var tar;
+	
+	//GET Total Burst time and get smallest arrival time (AT)
+	for(ctr = 0; ctr < thread.length;ctr++){
+		burst_timeTotal += parseInt(thread[ctr].CB);
+		if(sTime > parseInt(thread[ctr].AT)){
+			sTime = parseInt(thread[ctr].AT);
+		}
+	}
+	
+	while(holder.length != 0){
+		for(ctr = 0; ctr < holder.length;){
+			if(parseInt(holder[ctr].AT) <= sTime){
+				tempStack.push(holder[ctr]);
+				holder.splice(ctr,1);
+			}else{
+				ctr++
+			}
+		}
+		while(tempStack.length!=0){
+			shortest = 9999999;
+			tar = 0;
+			for(ctr = 0; ctr < tempStack.length; ctr++){
+				console.log(tempStack[ctr]["ID"] + " vs " + tempStack[tar]["ID"]);
+				if(parseInt(tempStack[ctr].CB) < shortest){
+					shortest  = parseInt(tempStack[ctr].CB);
+					tar = ctr;
+				}else if(parseInt(tempStack[ctr].CB) == shortest){
+					if(tempStack[ctr].ID < tempStack[tar].ID){
+					   tar = ctr;
+					}
+				}
+			}
+			finalStack.push(tempStack[tar]);
+			sTime += parseInt(tempStack[tar].CB);
+			tempStack.splice(tar,1);
+			ctr=0;
+			while(tempStack.length!=0){
+				holder.push(tempStack[ctr]);
+				tempStack.splice(ctr,1);
+			}
+		}
+	}
+	render(finalStack);
+}
+function render(finalStack)
+{
+	ctr = 0;
+	track = parseInt(startTime);
+	var stack = "";
+	var str = "";
+	var labs = "";
+	var track = 0;
+	var a_waitTime = 0;
+	var lab_stack = "";
+	var turn_time = 0;
+	var time_total = 0;
+	//Goes through each object b in JSON thread
+	$(finalStack).each(function(a,b){
+	
+		time_total += parseInt(b.CB);
+		processes.push(b.ID);
+		steps.push(ctr);
+		
+		//Create the colored boxes
+		str = "<div style='height:25px; width:"+(b.CB*15)+"px; float:left; background-color:"+b.CO+"; border: 1px solid black; text-align:center;color: white; text-shadow:  -1px -1px 0 #000,   1px -1px 0 #000, -1px 1px 0 #000,1px 1px 0 #000;'>"+b.ID+"</div>";
+
+		
+		//Time Labels for eachbox
+		labs = "<div style='height:25px; width:"+(b.CB*15)+"px; float:left;'><span class='pull-left' style='margin-left:-5px;'>"+track+"</span><span class='pull-right' id='end"+ctr+"'></span></div>";
+		
+		//inserts into str into stack for displaying and lab_stack for labels
+		stack += str;
+		lab_stack += labs;
+		
+		//Sum of each Wait Time holder. For every new iteration, new average wait time
+		a_waitTime += track - b.AT;
+		
+		//Insert into gannt_table current stack and current label stack, 1 row each.
+		$("#gantt_table tr:last").after("<tr><td>"+stack+"</td></tr>");
+		$("#gantt_table tr:last").after("<tr><td>"+lab_stack+"</td></tr>");
+		
+		//Sets new start time of next process by add current start time + CPU burst period
+		track += parseInt(b.CB);
+		
+		//Appends last label on each block
+		$("#end"+ctr).html(track);
+		ctr++;
+		turn_time += track - b.AT;
+	});
+	
+	endValues(a_waitTime, turn_time, ctr);
+}
+function fcfs(){
+	
+	var swap;
+	do {
+        swapped = false;
+        for (var i=0; i < thread.length-1; i++) {
+            if (parseInt(thread[i]["AT"]) > parseInt(thread[i+1]["AT"])) {
+                var temp = thread[i];
+                thread[i] = thread[i+1];
+                thread[i+1] = temp;
+                swapped = true;
+            }
+        }
+    } while (swapped);
+	
+	render(thread);
+}
+
+function endValues(a_waitTime, turn_time, ctr)
+{
+	a_waitTime /= (ctr);
+	turn_time /= (ctr);
+	a_waitTime = a_waitTime.toFixed(2);
+	turn_time = turn_time.toFixed(2);
+	$("#awt_hold").append(a_waitTime+" ms");
+	$("#turn_hold").append(turn_time+" ms");
+}
+
+function rndColor() {
+    var hex = ['0', '1', '2', '3', '4', '5', '6', '7',
+               '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'],
+        color = '#', i;
+    for (i = 0; i < 6 ; i++) {
+        color = color + hex[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+function rgb2hex(rgb) {
+    rgb = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+    function hex(x) {
+        return ("0" + parseInt(x).toString(16)).slice(-2);
+    }
+    return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
+}
+
+function arrayObjectIndexOf(myArray, searchTerm, property) {
+    for(var i = 0, len = myArray.length; i < len; i++) {
+        if (myArray[i][property] === searchTerm) return i;
+    }
+    return -1;
+}
+
+function getValues()
+{
+	ctr = 0;
+	var id_hold;
+	var at_hold;
+	var cb_hold;
+	var co_hold;
+	$("#process_table").find('tr').each(function(){
+	
+		if(ctr!=0){
+			$(this).find(".at").each(function(){
+			     at_hold = $(this).val();
+			     if(startTime > at_hold){
+					startTime = at_hold;
+				 }
+			});
+			$(this).find(".cb").each(function(){
+			     cb_hold = $(this).val();
+			});
+			$(this).find(".p_holder").each(function(){
+			     co_hold = rgb2hex($( this ).css( "background-color" ));
+			     id_hold = $( this ).html();
+			});
+			var newEx = {
+					    "ID": id_hold, //process ID
+					    "AT": at_hold, //Arrival Time
+					    "CB": cb_hold, //CPU Burst
+					    "CO": co_hold  //Color Assignment
+					  };
+					  
+			thread.push(newEx);
+		}
+		ctr++;
+	});
+}
+</script>
